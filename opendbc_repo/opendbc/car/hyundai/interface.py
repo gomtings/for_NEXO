@@ -14,6 +14,8 @@ from opendbc.car.hyundai.values import HyundaiExFlags
 from common.numpy_fast import interp
 import copy
 
+from opendbc.car.hyundai.cruise_helper import enable_radar_tracks # Thank you to ajouatom
+
 ButtonType = structs.CarState.ButtonEvent.Type
 Ecu = structs.CarParams.Ecu
 
@@ -194,6 +196,7 @@ class CarInterface(CarInterfaceBase):
       if CP.flags & HyundaiFlags.CANFD_HDA2.value:
         addr, bus = 0x730, CanBus(CP).ECAN
       disable_ecu(can_recv, can_send, bus=bus, addr=addr, com_cont_req=b'\x28\x83\x01')
+      enable_radar_tracks(CP, can_recv, can_send) # Thank you to ajouatom
 
     # for blinkers
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
