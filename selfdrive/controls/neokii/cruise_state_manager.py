@@ -111,7 +111,7 @@ class CruiseStateManager:
     CS.cruiseState.available = self.available
 
     if cruise_state_control:
-      CS.cruiseState.enabled = False
+      CS.cruiseState.enabled = self.enabled
       CS.cruiseState.standstill = False
       CS.cruiseState.speed = self.speed
       CS.cruiseState.leadDistanceBars = self.leadDistanceBars

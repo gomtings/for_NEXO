@@ -14,8 +14,6 @@ from opendbc.car.hyundai.values import HyundaiExFlags
 from common.numpy_fast import interp
 import copy
 
-from opendbc.car.hyundai.cruise_helper import enable_radar_tracks # Thank you to ajouatom
-
 ButtonType = structs.CarState.ButtonEvent.Type
 Ecu = structs.CarParams.Ecu
 
@@ -172,8 +170,8 @@ class CarInterface(CarInterfaceBase):
         ret.radarUnavailable = False
         ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.hyundaiLegacy)]
 
-    if ret.openpilotLongitudinalControl and ret.sccBus == 0 and not Params().get_bool('CruiseStateControl'):
-      ret.pcmCruise = False
+    if ret.openpilotLongitudinalControl and ret.sccBus == 0 :
+      ret.pcmCruise = False # false 일때 롱컨임
     else:
       ret.pcmCruise = True # managed by cruise state manager
 
@@ -196,13 +194,11 @@ class CarInterface(CarInterfaceBase):
       if CP.flags & HyundaiFlags.CANFD_HDA2.value:
         addr, bus = 0x730, CanBus(CP).ECAN
       disable_ecu(can_recv, can_send, bus=bus, addr=addr, com_cont_req=b'\x28\x83\x01')
-      if CP.flags & HyundaiFlags.FCEV: 
-        enable_radar_tracks(CP, can_recv, can_send) # Thank you to ajouatom
+      enable_radar_tracks(CP, can_recv, can_send) # Thank you to ajouatom
 
     # for blinkers
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
       disable_ecu(can_recv, can_send, bus=CanBus(CP).ECAN, addr=0x7B1, com_cont_req=b'\x28\x83\x01')
-
 
   @staticmethod
   def get_params_adjust_set_speed(CP):
@@ -243,3 +239,28 @@ class CarInterface(CarInterfaceBase):
     bus = self.CC.CAN.ECAN if self.CP.flags & HyundaiFlags.CANFD_HDA2 else self.CC.CAN.CAM
     return self.CC.packer.make_can_msg("CRUISE_BUTTONS_ALT", bus, values)
 
+def enable_radar_tracks(CP, logcan, sendcan):
+  from opendbc.car.isotp_parallel_query import IsoTpParallelQuery
+  print("################ Try To Enable Radar Tracks ####################")
+  sccBus = 2 if CP.flags & HyundaiFlags.CAMERA_SCC.value else 0
+  rdr_fw = None
+  rdr_fw_address = 0x7d0 #
+  try:
+    try:
+      query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [b'\x10\x07'], [b'\x50\x07'], debug=True)
+      for addr, dat in query.get_data(0.1).items(): # pylint: disable=unused-variable
+        print("ecu write data by id ...")
+        new_config = b"\x00\x00\x00\x01\x00\x01"
+        #new_config = b"\x00\x00\x00\x00\x00\x01"
+        dataId = b'\x01\x42'
+        WRITE_DAT_REQUEST = b'\x2e'
+        WRITE_DAT_RESPONSE = b'\x68'
+        query = IsoTpParallelQuery(sendcan, logcan, sccBus, [rdr_fw_address], [WRITE_DAT_REQUEST+dataId+new_config], [WRITE_DAT_RESPONSE], debug=True)
+        result = query.get_data(0)
+        print("result=", result)
+        break
+    except Exception as e:
+      print(f"Failed : {e}") 
+  except Exception as e:
+    print("##############  Failed to enable tracks" + str(e))
+  print("################ END Try to enable radar tracks")
