@@ -220,6 +220,29 @@ class Controls:
   def update_events(self, CS):
     """Compute carEvents from carState"""
 
+    # Automatic lane change and overtake logic
+    if self.sm['longitudinalPlan'].vCruise > 120:  # Cruise speed > 120 km/h
+        lead_vehicle_speed = self.sm['radarState'].leadOne.vLead
+        lead_vehicle_distance = self.sm['radarState'].leadOne.dRel
+
+        if lead_vehicle_speed < 120 and lead_vehicle_distance < 50:  # Lead vehicle slower and close
+            # Check for left lane availability and safety
+            if CS.leftLaneVisible and not CS.leftBlindspot:
+                self.events.add(EventName.autoLaneChange)
+                # Trigger left lane change
+                self.sm['lateralPlan'].laneChangeDirection = LaneChangeDirection.left
+                self.sm['lateralPlan'].laneChangeState = LaneChangeState.laneChangeStarting
+
+                # Wait until lead vehicle is overtaken
+                while lead_vehicle_distance < 50:
+                    lead_vehicle_distance = self.sm['radarState'].leadOne.dRel
+
+                # After overtaking, return to original lane
+                if CS.rightLaneVisible and not CS.rightBlindspot:
+                    self.events.add(EventName.autoLaneChange)
+                    self.sm['lateralPlan'].laneChangeDirection = LaneChangeDirection.right
+                    self.sm['lateralPlan'].laneChangeState = LaneChangeState.laneChangeStarting
+
     self.events.clear()
 
     # Add startup event
