@@ -22,6 +22,12 @@ class Service:
 DCAM_FREQ = 10. if not TICI else 20.
 
 services = {
+
+  "trafficLightState": {
+    "type": "trafficLight",
+    "pubsub": true,
+    "frequency": 20  # Frequency in Hz
+  },
   # service: (should_log, frequency, qlog decimation (optional))
   # note: the "EncodeIdx" packets will still be in the log
   "sensorEvents": (True, 100., 100),
